@@ -1,0 +1,376 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Template de networking para proyecto Ovenube ERPNext
+
+Parameters:
+  
+  VpcCIDR: 
+    Description: CIDR para la VPC
+    Type: String
+    Default: 172.16.0.0/16
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+  PublicSubnet1CIDR:
+    Description: Public CIDR 
+    Type: String
+    Default: 172.16.8.0/24
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+  PublicSubnet2CIDR:
+    Description: Public CIDR 
+    Type: String
+    Default: 172.16.9.0/24
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+####  Hibrid
+  HibridSubnet1CIDR:
+    Description: Hibdrid CIDR (Red provada con acceso a internet)
+    Type: String
+    Default: 172.16.20.0/24 
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+  HibridSubnet2CIDR:
+    Description: Hibdrid CIDR (Red provada con acceso a internet)
+    Type: String
+    Default: 172.16.21.0/24
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+
+####  Private
+  PrivateSubnet1CIDR:
+    Description: Private CIDR 
+    Type: String
+    Default: 172.16.30.0/24 
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+  PrivateSubnet2CIDR:
+    Description: Private CIDR 
+    Type: String
+    Default: 172.16.31.0/24
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+
+
+  Proyecto:
+    Description: Identificador del proyecto
+    Type: String
+    Default: Ovenube_Erpnext
+  Environment:
+    Description: Ambiente
+    Type: String
+    Default: DEV
+    AllowedValues:
+      - DEV
+      - QA
+      - PROD
+  
+Metadata:
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Configuracion del Network 
+        Parameters:
+          - VpcCIDR
+          - PublicSubnet1CIDR
+          - PublicSubnet2CIDR
+          - HibridSubnet1CIDR
+          - HibridSubnet2CIDR
+          - PrivateSubnet1CIDR
+          - PrivateSubnet2CIDR
+      - Label:
+          default: Configuracion del Proyecto
+        Parameters:
+          - Proyecto
+          - Environment
+
+Resources:
+
+  VPC: 
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: 
+        - Key: Name 
+          Value: !Ref Proyecto
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Provider
+          Value: Ovenube Consulting
+
+
+    
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-igw"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Provider
+          Value: Ovenube Consulting
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  NatGatewayEip:
+    Type: AWS::EC2::EIP
+    DependsOn: [ VPC ]
+    Properties: 
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    DependsOn: [ PublicSubnet1, NatGatewayEip ]
+    Properties: 
+      AllocationId: !GetAtt NatGatewayEip.AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags: 
+        - Key: Name 
+          Value: !Sub "${Proyecto}-ng"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Provider
+          Value: Ovenube Consulting
+
+  PublicSubnet1: 
+    Type: AWS::EC2::Subnet
+    DependsOn: [ VPC ]
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - Key: Name 
+          Value: !Sub "${Proyecto}-public-subnet1"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Provider
+          Value: Ovenube Consulting
+        - Key: kubernetes.io/role/elb
+          Value: 1
+   
+  PublicSubnet2: 
+    Type: AWS::EC2::Subnet
+    DependsOn: [ VPC ]
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags: 
+        - Key: Name 
+          Value:  !Sub "${Proyecto}-public-subnet2"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Provider
+          Value: Ovenube Consulting
+        - Key: kubernetes.io/role/elb
+          Value: 1
+  
+  HibridSubnet1: 
+    Type: AWS::EC2::Subnet
+    DependsOn: [ VPC ]
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref HibridSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags: 
+        - Key: Name 
+          Value: !Sub "${Proyecto}-hibrid-subnet1"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Provider
+          Value: Ovenube Consulting
+        - Key: kubernetes.io/role/elb
+          Value: 1
+   
+  HibridSubnet2: 
+    Type: AWS::EC2::Subnet
+    DependsOn: [ VPC ]
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref HibridSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags: 
+        - Key: Name 
+          Value:  !Sub "${Proyecto}-hibrid-subnet2"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Provider
+          Value: Ovenube Consulting
+        - Key: kubernetes.io/role/elb
+          Value: 1
+
+
+  PrivateSubnet1: 
+    Type: AWS::EC2::Subnet
+    DependsOn: [ VPC ]
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags: 
+        - Key: Name 
+          Value: !Sub "${Proyecto}-private-subnet1"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Provider
+          Value: Ovenube Consulting
+        - Key: kubernetes.io/role/internal-elb    
+          Value: 1
+
+  PrivateSubnet2: 
+    Type: AWS::EC2::Subnet
+    DependsOn: [ VPC ]
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags: 
+        - Key: Name 
+          Value: !Sub "${Proyecto}-private-subnet2"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Provider
+          Value: Ovenube Consulting
+        - Key: kubernetes.io/role/internal-elb    
+          Value: 1
+  
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: [ VPC ]
+    Properties: 
+      VpcId: !Ref VPC
+      Tags: 
+        - Key: Name 
+          Value: !Sub "${Proyecto}-public-rt"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Provider
+          Value: Ovenube Consulting
+
+  HibridRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: [ VPC ]
+    Properties: 
+      VpcId: !Ref VPC
+      Tags: 
+        - Key: Name 
+          Value: !Sub "${Proyecto}-hibrid-rt"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Provider
+          Value: Ovenube Consulting
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: [ VPC ]
+    Properties: 
+      VpcId: !Ref VPC
+      Tags: 
+        - Key: Name 
+          Value: !Sub "${Proyecto}-private-rt"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Provider
+          Value: Ovenube Consulting
+
+  DefaultPublicRoute: 
+    Type: AWS::EC2::Route
+    DependsOn: [ PublicRouteTable, InternetGateway ]
+    Properties: 
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  
+  DefaultHibridRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: [ PrivateRouteTable, NatGateway ]
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  DefaultPrivateRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: [ PrivateRouteTable, NatGateway ]
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+
+    
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: [ PublicRouteTable ]
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+  
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: [ PublicRouteTable ]
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  HibridSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: [ HibridRouteTable ]
+    Properties:
+      RouteTableId: !Ref HibridRouteTable
+      SubnetId: !Ref HibridSubnet1
+  
+  HibridSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: [ HibridRouteTable ]
+    Properties:
+      RouteTableId: !Ref HibridRouteTable
+      SubnetId: !Ref HibridSubnet2
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: [ PrivateRouteTable ]
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1
+  
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: [ PrivateRouteTable ]
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet2
+  
+Outputs: 
+
+  VpcId:
+    Description: ID de la VPC
+    Value: !Ref VPC
+  PublicSubnet1Id:
+    Description: Public Subnet 1 ID
+    Value: !Ref PublicSubnet1
+  PublicSubnet2Id:
+    Description: Public Subnet 2 ID
+    Value: !Ref PublicSubnet2
+  HibridSubnet1Id:
+    Description: Hibrid Subnet 1 ID
+    Value: !Ref HibridSubnet1
+  HibridSubnet2Id:
+    Description: Hibrid Subnet 2 ID
+    Value: !Ref HibridSubnet2
+  PrivateSubnet1Id:
+    Description: Private Subnet 1 ID
+    Value: !Ref PrivateSubnet1
+  PrivateSubnet2Id:
+    Description: Private Subnet 2 ID 
+    Value: !Ref PrivateSubnet2
+
+
+

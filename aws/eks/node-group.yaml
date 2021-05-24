@@ -1,0 +1,13 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: ovenube-ERPNEXT-DEV-CLUSTER01
+  region: us-east-1
+
+nodeGroups:
+  - name: ng-1-workers
+    labels: { role: workers }
+    instanceType: t3.medium
+    desiredCapacity: 2
+    privateNetworking: true

@@ -1,0 +1,28 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: OVENUBE-ERPNEXT-DEV-CLUSTER01
+  region: us-east-1
+  # version: 1.16
+
+iam:
+  withOIDC: true
+
+vpc:
+  id: vpc-070cedee3192b5e2c
+  subnets:
+    private:
+      us-east-1b: { id: subnet-0b88c9a27f407c5d4 }
+      us-east-1a: { id: subnet-0f54884ec18f2570c }
+
+    public: 
+      us-east-1b: { id: subnet-07399ab2b28d4e535 }
+      us-east-1a: { id: subnet-07a1348c7a7f1b2ea }
+
+nodeGroups:
+  - name: ng-ovenube
+    labels: { role: workers }
+    instanceType: c5n.large
+    desiredCapacity: 2
+    privateNetworking: true

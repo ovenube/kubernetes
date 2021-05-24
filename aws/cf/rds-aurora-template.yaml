@@ -1,0 +1,226 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Reference Architecture to host RDS on AWS - Creates RDS Aurora database cluster
+
+Metadata:
+  Authors:
+    Description: Ovenube Consulting
+  
+Parameters:
+
+  Project:
+    Description: Project short identifier
+    Type: String
+    Default: ovenube-erpnext
+
+  Proveedor:
+    Description: Proveedor Tecnologico
+    Type: String
+    Default: Ovenube Consulting
+
+  Environment:
+    Description: Environment
+    Type: String
+    Default: dev
+    AllowedValues: 
+      - dev
+      - qa
+      - preprod
+      - prod
+
+  DatabaseInstanceType:
+    AllowedValues:
+      - db.t3.medium
+      - db.t3.large
+      - db.r5.large
+      - db.r5.xlarge
+      - db.r5.2xlarge
+      - db.r5.4xlarge
+      - db.r5.8xlarge
+      - db.r5.12xlarge
+      - db.r5.16xlarge
+    ConstraintDescription: Must be a valid RDS instance class.
+    Default: db.t3.medium
+    Description: The Amazon RDS database instance class.
+    Type: String
+
+  DatabaseMasterUsername:
+    AllowedPattern: ^([a-zA-Z0-9]*)$
+    Description: The Amazon RDS master username.
+    ConstraintDescription: Must contain only alphanumeric characters (minimum 8; maximum 16).
+    Default: postgres
+    MaxLength: 16
+    MinLength: 4
+    Type: String
+
+  DatabaseName:
+    AllowedPattern: ^([a-zA-Z0-9]*)$
+    Description: The Amazon RDS master database name.
+    Default: OvenubeERPNextRDS
+    Type: String
+
+  DatabaseSecurityGroup:
+    Description: Select the database security group.
+    Type: AWS::EC2::SecurityGroup::Id
+
+  NumberOfSubnets:
+    AllowedValues:
+    - 2
+    - 3
+    Default: 2
+    Description: Number of subnets. This must match your selections in the list of subnets below.
+    Type: String 
+  Subnet:
+    Description: Select existing subnets. The number selected must match the number of subnets above. Subnets selected must be in separate AZs.
+    Type: List<AWS::EC2::Subnet::Id>
+
+Conditions:
+
+  NumberOfSubnets1:
+      !Equals [ 1, !Ref NumberOfSubnets ]
+  NumberOfSubnets2:
+      !Equals [ 2, !Ref NumberOfSubnets ]
+  NumberOfSubnets3:
+      !Equals [ 3, !Ref NumberOfSubnets ]
+  IsProd: !Equals [!Ref Environment, 'prod']
+
+Resources:
+
+  DatabaseCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      BackupRetentionPeriod: 30
+      DatabaseName: !Ref DatabaseName
+      DBSubnetGroupName: !Ref DataSubnetGroup
+      Engine: aurora-postgresql
+      EngineMode: provisioned
+      EngineVersion: 11.7
+      DBClusterParameterGroupName: default.aurora-postgresql11
+      MasterUsername:
+          !Join ['', ['{{resolve:secretsmanager:', !Ref OvenubeERPNextDbMasterSecret, ':SecretString:username}}' ]]
+      MasterUserPassword:
+          !Join ['', ['{{resolve:secretsmanager:', !Ref OvenubeERPNextDbMasterSecret, ':SecretString:password}}' ]]
+      DeletionProtection: !If [IsProd, true, false]
+      Port: 5432
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-database-${Environment}-dbcluster
+        - Key: Project
+          Value: !Ref Project
+        - Key: Proveedor
+          Value: !Ref Proveedor
+        - Key: Environment
+          Value: Environment
+      VpcSecurityGroupIds:
+      - !Ref DatabaseSecurityGroup
+
+  DatabaseInstance0:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      DBClusterIdentifier: !Ref DatabaseCluster
+      DBInstanceClass: !Ref DatabaseInstanceType
+      DBSubnetGroupName: !Ref DataSubnetGroup
+      Engine: aurora-postgresql
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-database-${Environment}-dbinstance-0
+        - Key: Project
+          Value: !Ref Project
+        - Key: Proveedor
+          Value: !Ref Proveedor
+        - Key: Environment
+          Value: Environment
+
+  DatabaseInstance1:
+    Condition: IsProd
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      DBClusterIdentifier: !Ref DatabaseCluster
+      DBInstanceClass: !Ref DatabaseInstanceType
+      DBSubnetGroupName: !Ref DataSubnetGroup
+      Engine: aurora-postgresql
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-database-${Environment}-dbinstance-1
+        - Key: Project
+          Value: !Ref Project
+        - Key: Proveedor
+          Value: !Ref Proveedor
+        - Key: Environment
+          Value: Environment
+
+  DataSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: RDS Database Subnet Group for Ovenube ERPNext
+      SubnetIds:
+        !If
+          [ NumberOfSubnets1,
+          [ !Select [ 0, !Ref Subnet ] ],
+          !If
+            [ NumberOfSubnets2,
+            [ !Select [ 0, !Ref Subnet ], !Select [ 1, !Ref Subnet ] ],
+            [ !Select [ 0, !Ref Subnet ], !Select [ 1, !Ref Subnet ], !Select [ 2, !Ref Subnet ] ],
+            ]
+          ]
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-database-${Environment}-dbsubnetgroup
+        - Key: Project
+          Value: !Ref Project
+        - Key: Proveedor
+          Value: !Ref Proveedor
+        - Key: Environment
+          Value: Environment
+
+  OvenubeERPNextDbMasterSecret:
+      Type: AWS::SecretsManager::Secret
+      Properties:
+          Name: !Sub "${Project}-${Environment}-db-secret"
+          Description: !Join ['', ['DB Master User Secret for', !Ref 'Project']]
+          GenerateSecretString:
+              SecretStringTemplate: !Join ['', ['{"username": "', !Ref DatabaseMasterUsername, '"}']]
+              GenerateStringKey: "password"
+              ExcludeCharacters: '"@/\%.{}[]-_,*?¿!¡$#&()=:;'
+              PasswordLength: 16
+          Tags:
+              - Key: DatabaseEngine
+                Value: 'Aurora PostgreSQL'
+              - Key: StackID
+                Value: !Ref 'AWS::StackId'
+              - Key: Project
+                Value: !Ref Project
+              - Key: Environment 
+                Value: !Ref Environment
+              - Key: Name
+                Value: !Sub ${Project}-database-${Environment}-secret
+
+  DBSecretClusterAttachment:
+      Type: AWS::SecretsManager::SecretTargetAttachment
+      Properties:
+          SecretId: !Ref OvenubeERPNextDbMasterSecret
+          TargetId: !Ref DatabaseCluster
+          TargetType: AWS::RDS::DBCluster
+
+Outputs:
+  DatabaseCluster:
+    Value: !Ref DatabaseCluster
+  DatabaseName:
+    Value: !Ref DatabaseName
+  DatabaseInstance0:
+    Value: !Ref DatabaseInstance0
+  DatabaseInstance1:
+    Value:
+      !If [ IsProd, !Ref DatabaseInstance1, '']
+  DataSubnetGroup:
+    Value: !Ref DataSubnetGroup
+  DatabaseClusterEndpointAddress:
+    Value: !GetAtt DatabaseCluster.Endpoint.Address
+  

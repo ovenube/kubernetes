@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-new-site-ovenube-erpnext
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      securityContext:
+        supplementalGroups: [1000]
+      containers:
+      - name: create-site
+        image: seethersan/ovenube-worker:version-12
+        args: ["new"]
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+          - name: sites-dir
+            mountPath: /home/frappe/frappe-bench/sites
+        env:
+          - name: "SITE_NAME"
+            value: aks.Ovenube.dev
+          - name: "DB_ROOT_USER"
+            value: root
+          - name: "MYSQL_ROOT_PASSWORD"
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: mariadb-root-password
+          - name: "ADMIN_PASSWORD"
+            value: Ju12An34
+          - name: "INSTALL_APPS"
+            value: "erpnext,Ovenube_peru"
+      restartPolicy: Never
+      volumes:
+        - name: sites-dir
+          persistentVolumeClaim:
+            claimName: frappe-bench-0001-erpnext
+            readOnly: false

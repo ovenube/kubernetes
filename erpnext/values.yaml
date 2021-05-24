@@ -1,0 +1,23 @@
+nginxImage:
+  repository: ovenube/ovenube-nginx
+  tag: v12.0.3
+  pullPolicy: Always
+  # nginxConfig: |
+  #   # custom /etc/nginx/conf.d/default.conf
+
+pythonImage:
+  repository: ovenube/ovenube-worker
+  tag: v12.0.3
+  pullPolicy: Always
+
+persistence:
+  worker:
+    enabled: true
+    # existingClaim: ""
+    size: 32Gi
+    storageClass: "nfs"
+  logs:
+    enabled: true
+    # existingClaim: ""
+    size: 8Gi
+    storageClass: "nfs"

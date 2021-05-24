@@ -1,0 +1,34 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+    name: ovenube-ERPNEXT-DEV-CLUSTER01
+    region: us-east-1
+nodeGroups:
+    - name: spot-node-group-2vcpu-8gb
+      minSize: 2
+      maxSize: 5
+      desiredCapacity: 2
+      instancesDistribution:
+        instanceTypes: ["c5a.large", "c5.large", "c5n.large"] 
+        onDemandBaseCapacity: 1
+        onDemandPercentageAboveBaseCapacity: 0
+        spotAllocationStrategy: "capacity-optimized"
+      labels:
+        lifecycle: Ec2Spot
+      iam:
+        withAddonPolicies:
+          autoScaler: true
+    # - name: spot-node-group-4vcpu-16gb
+    #   minSize: 3
+    #   maxSize: 5
+    #   desiredCapacity: 3
+    #   instancesDistribution:
+    #     instanceTypes: ["m5.xlarge", "m5d.xlarge", "m4.xlarge","m5a.xlarge","m5ad.xlarge","m5n.xlarge","m5dn.xlarge"] 
+    #     onDemandBaseCapacity: 0
+    #     onDemandPercentageAboveBaseCapacity: 0
+    #     spotAllocationStrategy: "capacity-optimized"
+    #   labels:
+    #     lifecycle: Ec2Spot
+    #   iam:
+    #     withAddonPolicies:
+    #       autoScaler: true

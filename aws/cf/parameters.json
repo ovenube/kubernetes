@@ -1,0 +1,12 @@
+[{
+	"ParameterKey": "VPC",
+	"ParameterValue": "vpc-008a8e09fd733dcce"
+   },
+   {
+	"ParameterKey" : "Subnet",
+	"ParameterValue" : "subnet-0816bcacdd036ce6b, subnet-0d2b5be3dcdbf80cf"
+   },
+   {
+	"ParameterKey" : "DatabaseName",
+	"ParameterValue": "OvenubeERPNextRDSDev"
+}]

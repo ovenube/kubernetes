@@ -1,0 +1,202 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Reference Architecture to host RDS on AWS - Creates RDS Aurora database cluster
+
+Metadata:
+  Authors:
+    Description: Ovenube Consulting
+  
+Parameters:
+
+  Project:
+    Description: Project short identifier
+    Type: String
+    Default: ovenube-erpnext
+
+  Proveedor:
+    Description: Proveedor Tecnologico
+    Type: String
+    Default: Ovenube Consulting
+
+  Environment:
+    Description: Environment
+    Type: String
+    Default: dev
+    AllowedValues: 
+      - dev
+      - qa
+      - preprod
+      - prod
+
+  DatabaseInstanceType:
+    AllowedValues:
+      - db.t3.medium
+      - db.t3.large
+      - db.r5.large
+      - db.r5.xlarge
+      - db.r5.2xlarge
+      - db.r5.4xlarge
+      - db.r5.8xlarge
+      - db.r5.12xlarge
+      - db.r5.16xlarge
+    ConstraintDescription: Must be a valid RDS instance class.
+    Default: db.t3.medium
+    Description: The Amazon RDS database instance class.
+    Type: String
+
+  DatabaseMasterUsername:
+    AllowedPattern: ^([a-zA-Z0-9]*)$
+    Description: The Amazon RDS master username.
+    ConstraintDescription: Must contain only alphanumeric characters (minimum 8; maximum 16).
+    Default: root
+    MaxLength: 16
+    MinLength: 4
+    Type: String
+
+  DatabaseName:
+    AllowedPattern: ^([a-zA-Z0-9]*)$
+    Description: The Amazon RDS master database name.
+    Default: OvenubeERPNextRDS
+    Type: String
+
+  VPC:
+    Description: Select the security group VPC
+    Type: AWS::EC2::VPC::Id 
+
+  NumberOfSubnets:
+    AllowedValues:
+    - 2
+    - 3
+    Default: 2
+    Description: Number of subnets. This must match your selections in the list of subnets below.
+    Type: String 
+  Subnet:
+    Description: Select existing subnets. The number selected must match the number of subnets above. Subnets selected must be in separate AZs.
+    Type: List<AWS::EC2::Subnet::Id>
+
+Conditions:
+
+  NumberOfSubnets1:
+      !Equals [ 1, !Ref NumberOfSubnets ]
+  NumberOfSubnets2:
+      !Equals [ 2, !Ref NumberOfSubnets ]
+  NumberOfSubnets3:
+      !Equals [ 3, !Ref NumberOfSubnets ]
+  IsProd: !Equals [!Ref Environment, 'prod']
+
+Resources:
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Acceso a RDS
+      VpcId:
+        Ref: VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        CidrIp: 172.16.0.0/24
+
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      AllocatedStorage: '20'
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      DBInstanceClass: !Ref DatabaseInstanceType
+      DBName: !Ref DatabaseName
+      DBSubnetGroupName: !Ref DataSubnetGroup
+      DBParameterGroupName: !Ref RDSParamGroup
+      VPCSecurityGroups: 
+      - !GetAtt DatabaseSecurityGroup.GroupId
+      Engine: mariadb
+      EngineVersion: 10.3.8
+      MasterUsername:
+          !Join ['', ['{{resolve:secretsmanager:', !Ref OvenubeERPNextDbMasterSecret, ':SecretString:username}}' ]]
+      MasterUserPassword:
+          !Join ['', ['{{resolve:secretsmanager:', !Ref OvenubeERPNextDbMasterSecret, ':SecretString:password}}' ]]
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-database-${Environment}-dbinstance
+        - Key: Project
+          Value: !Ref Project
+        - Key: Proveedor
+          Value: !Ref Proveedor
+        - Key: Environment
+          Value: Environment
+
+  RDSParamGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Family: mariadb10.3
+      Description: RDS Database Parameter Group for Ovenube ERPNext
+      Parameters:
+        character_set_server: 'utf8mb4'
+        collation_server: 'utf8mb4_unicode_ci'
+
+  DataSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: RDS Database Subnet Group for Ovenube ERPNext
+      SubnetIds:
+        !If
+          [ NumberOfSubnets1,
+          [ !Select [ 0, !Ref Subnet ] ],
+          !If
+            [ NumberOfSubnets2,
+            [ !Select [ 0, !Ref Subnet ], !Select [ 1, !Ref Subnet ] ],
+            [ !Select [ 0, !Ref Subnet ], !Select [ 1, !Ref Subnet ], !Select [ 2, !Ref Subnet ] ],
+            ]
+          ]
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}-database-${Environment}-dbsubnetgroup
+        - Key: Project
+          Value: !Ref Project
+        - Key: Proveedor
+          Value: !Ref Proveedor
+        - Key: Environment
+          Value: Environment
+
+  OvenubeERPNextDbMasterSecret:
+      Type: AWS::SecretsManager::Secret
+      Properties:
+          Name: !Sub "${Project}-${Environment}-db-secret"
+          Description: !Join ['', ['DB Master User Secret for ', !Ref 'Project']]
+          GenerateSecretString:
+              SecretStringTemplate: !Join ['', ['{"username": "', !Ref DatabaseMasterUsername, '"}']]
+              GenerateStringKey: "password"
+              ExcludeCharacters: '"@/\%.{}[]-_,*?¿!¡$#&()=:;'
+              PasswordLength: 16
+          Tags:
+              - Key: DatabaseEngine
+                Value: 'RDS MariaDB'
+              - Key: StackID
+                Value: !Ref 'AWS::StackId'
+              - Key: Project
+                Value: !Ref Project
+              - Key: Environment 
+                Value: !Ref Environment
+              - Key: Name
+                Value: !Sub ${Project}-database-${Environment}-secret
+
+  DBSecretAttachment:
+      Type: AWS::SecretsManager::SecretTargetAttachment
+      Properties:
+          SecretId: !Ref OvenubeERPNextDbMasterSecret
+          TargetId: !Ref DatabaseInstance
+          TargetType: AWS::RDS::DBInstance
+
+Outputs:
+  DatabaseName:
+    Value: !Ref DatabaseName
+  DatabaseInstance:
+    Value: !Ref DatabaseInstance
+  DataSubnetGroup:
+    Value: !Ref DataSubnetGroup
+  DatabaseEndpointAddress:
+    Value: !GetAtt DatabaseInstance.Endpoint.Address
+  

@@ -1,0 +1,57 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: backup-and-push-cron-job
+spec:
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          securityContext:
+            supplementalGroups: [1000]
+          initContainers:
+          - name: backup
+            image: ovenube/erpnext-worker:version-12
+            args: ["backup"]
+            imagePullPolicy: IfNotPresent
+            env:
+              - name: "WITH_FILES"
+                value: "1"
+            volumeMounts:
+              - name: sites-dir
+                mountPath: /home/frappe/frappe-bench/sites
+          containers:
+          - name: push-backup
+            image: ovenube/erpnext-worker:version-12
+            args: ["push-backup"]
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+              - name: sites-dir
+                mountPath: /home/frappe/frappe-bench/sites
+            env:
+              - name: "BUCKET_NAME"
+                value: erpnext-ovenube-backups
+              - name: "REGION"
+                value: ${REGION}
+              - name: "ACCESS_KEY_ID"
+                valueFrom:
+                  secretKeyRef:
+                    key: accessKey
+                    name: push-backup-s3-secret
+              - name: "SECRET_ACCESS_KEY"
+                valueFrom:
+                  secretKeyRef:
+                    key: secretKey
+                    name: push-backup-s3-secret
+              - name: "ENDPOINT_URL"
+                value: "https://s3.amazonaws.com"
+              - name: "BUCKET_DIR"
+                value: "backups"
+          restartPolicy: Never
+          volumes:
+            - name: sites-dir
+              persistentVolumeClaim:
+                claimName: frappe-bench-0001-erpnext
+                readOnly: false
