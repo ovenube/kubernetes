@@ -10,7 +10,7 @@ spec:
         supplementalGroups: [1000]
       initContainers:
       - name: backup
-        image: ovenube/erpnext-worker:version-12
+        image: ovenube/erpnext-worker:v12.0.7
         args: ["backup"]
         imagePullPolicy: IfNotPresent
         env:
@@ -21,7 +21,7 @@ spec:
             mountPath: /home/frappe/frappe-bench/sites
       containers:
       - name: push-backup
-        image: ovenube/erpnext-worker:version-12
+        image: ovenube/erpnext-worker:v12.0.7
         args: ["push-backup"]
         imagePullPolicy: IfNotPresent
         volumeMounts:

@@ -1,9 +1,9 @@
-# Instalar Cluster con eksctl
+# Instalar Cluster con aws/eksctl
 
 Desplegar el cluster con el siguiente comando:
 
 ```bash
-eksctl create cluster -f aws/eks/cluster-definition.yaml --profile ovenube
+aws/eksctl create cluster -f aws/aws/eks/cluster-definition.yaml --profile ovenube
 ```
 
 ## Cluster definition
@@ -11,7 +11,7 @@ eksctl create cluster -f aws/eks/cluster-definition.yaml --profile ovenube
 Cambiar los datos de VPC Id y las Subnets. Los grupos de seguridad son creados automáticamente.
 
 ```yaml
-apiVersion: eksctl.io/v1alpha5
+apiVersion: aws/eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
@@ -85,7 +85,7 @@ helm install \
 ## Crear cluster-issuer
 
 ```bash
-kubectl create -n cert-manager -f eks/cert-manager/cluster-issuer.yaml
+kubectl create -n cert-manager -f aws/eks/cert-manager/cluster-issuer.yaml
 ```
 
 # Crear NFS
@@ -97,7 +97,7 @@ helm install nfs-server-provisioner kvaps/nfs-server-provisioner
 # Instalar Base de datos
 ## Instalar MariaDB
 ```bash
-helm install -n mariadb mariadb bitnami/mariadb -f eks/mariadb/values-production.yaml
+helm install -n mariadb mariadb bitnami/mariadb -f aws/eks/mariadb/values-production.yaml
 ```
 
 # Instalar ERPNext

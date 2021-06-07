@@ -10,7 +10,7 @@ spec:
         supplementalGroups: [1000]
       containers:
       - name: drop-site
-        image: frappe/erpnext-worker:v12
+        image: ovenube/ovenube-worker:v12.0.7
         args: ["drop"]
         imagePullPolicy: IfNotPresent
         volumeMounts:
@@ -18,7 +18,7 @@ spec:
             mountPath: /home/frappe/frappe-bench/sites
         env:
           - name: "SITE_NAME"
-            value: aks.Ovenube.dev
+            value: agroinversionesolmos.t1.ovenube.com
           - name: "DB_ROOT_USER"
             value: root
           - name: "MYSQL_ROOT_PASSWORD"

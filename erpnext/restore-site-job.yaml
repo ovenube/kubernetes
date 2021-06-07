@@ -10,7 +10,7 @@ spec:
         supplementalGroups: [1000]
       containers:
       - name: restore-backups
-        image: ovenube/ovenube-worker:v12.0.2
+        image: ovenube/ovenube-worker:v12.0.4
         args: ["restore-backup"]
         imagePullPolicy: IfNotPresent
         volumeMounts:
@@ -23,7 +23,7 @@ spec:
                 key: password
                 name: mariadb-root-password
           - name: "BUCKET_NAME"
-            value: ovenube-erpnext-backups
+            value: erpnext-ovenube-backups
           - name: "ACCESS_KEY_ID"
             valueFrom:
               secretKeyRef:

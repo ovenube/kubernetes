@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
-  name: ingress-ovenube-addera
+  name: ingress-ovenube-agroinversionesolmos
   # Optional Labels
   labels:
     app.kubernetes.io/instance: frappe-bench-0001-erpnext
@@ -14,7 +14,7 @@ metadata:
     kubernetes.io/tls-acme: "true"
 spec:
   rules:
-  - host: addera.s1.ovenube.com
+  - host: agroinversionesolmos.t1.ovenube.com
     http:
       paths:
       - backend:
@@ -23,5 +23,5 @@ spec:
         path: /
   tls:
   - hosts:
-    - addera.s1.ovenube.com
-    secretName: ovenube-addera-tls
+    - agroinversionesolmos.t1.ovenube.com
+    secretName: agroinversionesolmos-ovenube-tls

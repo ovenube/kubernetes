@@ -10,7 +10,7 @@ spec:
         supplementalGroups: [1000]
       containers:
       - name: create-site
-        image: seethersan/ovenube-worker:version-12
+        image: ovenube/ovenube-worker:v12.0.7
         args: ["new"]
         imagePullPolicy: IfNotPresent
         volumeMounts:
@@ -18,7 +18,7 @@ spec:
             mountPath: /home/frappe/frappe-bench/sites
         env:
           - name: "SITE_NAME"
-            value: aks.Ovenube.dev
+            value: agroinversionesolmos.t1.ovenube.com
           - name: "DB_ROOT_USER"
             value: root
           - name: "MYSQL_ROOT_PASSWORD"
@@ -27,9 +27,9 @@ spec:
                 key: password
                 name: mariadb-root-password
           - name: "ADMIN_PASSWORD"
-            value: Ju12An34
+            value: "password"
           - name: "INSTALL_APPS"
-            value: "erpnext,Ovenube_peru"
+            value: "erpnext,ovenube_peru"
       restartPolicy: Never
       volumes:
         - name: sites-dir

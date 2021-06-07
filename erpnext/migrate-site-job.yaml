@@ -10,7 +10,7 @@ spec:
         supplementalGroups: [1000]
       containers:
       - name: migrate-sites
-        image: ovenube/ovenube-worker:v12.0.3
+        image: ovenube/ovenube-worker:v12.0.7
         args: ["migrate"]
         imagePullPolicy: IfNotPresent
         volumeMounts:
